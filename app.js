@@ -6,12 +6,13 @@
 // ===== FIREBASE CONFIG =====
 // 📌 請將下方替換為你的 Firebase 專案設定
 const firebaseConfig = {
-    apiKey: "YOUR_API_KEY",
-    authDomain: "YOUR_PROJECT.firebaseapp.com",
-    projectId: "YOUR_PROJECT_ID",
-    storageBucket: "YOUR_PROJECT.appspot.com",
-    messagingSenderId: "YOUR_SENDER_ID",
-    appId: "YOUR_APP_ID"
+    apiKey: "AIzaSyBQNLkhSokUJHFHWxePrkHWxv_BXARYEWg",
+    authDomain: "quiz-system-bb094.firebaseapp.com",
+    projectId: "quiz-system-bb094",
+    storageBucket: "quiz-system-bb094.firebasestorage.app",
+    messagingSenderId: "821233062287",
+    appId: "1:821233062287:web:c2c4b01911d9d161b77bfa",
+    measurementId: "G-D5RN8D1CYV"
 };
 
 // Firebase init (only if config is set)
