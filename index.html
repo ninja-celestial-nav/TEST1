@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>一等船副 快速自學與測驗系統</title>
+  <meta name="description" content="一等船副航海人員測驗自學系統，含五科目超過10000題考古題，AI 解題">
+  <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+  <div class="container">
+    <button class="nav-back" id="navBack" onclick="goBack()">← 返回</button>
+    <button class="settings-btn" onclick="showSettings()">⚙️</button>
+
+    <header class="app-header">
+      <h1>🧭 一等船副 自學與測驗系統</h1>
+      <p id="headerSubtitle">五大科目 · 超過 10,000 題考古題</p>
+    </header>
+
+    <!-- PAGE: Home -->
+    <div id="pageHome">
+      <div class="stats-banner" id="statsBanner"></div>
+      <div class="subjects-grid" id="subjectsGrid"></div>
+    </div>
+
+    <!-- PAGE: Mode Select -->
+    <div id="pageMode" class="hidden">
+      <div class="mode-selector" id="modeSelector"></div>
+    </div>
+
+    <!-- PAGE: Quiz Setup -->
+    <div id="pageQuizSetup" class="hidden">
+      <div class="question-card" style="text-align:center;">
+        <h2 style="margin-bottom:20px;">⚙️ 測驗設定</h2>
+        <div class="num-input">
+          <label>題數：</label>
+          <input type="number" id="quizCount" value="40" min="5" max="100">
+        </div>
+        <div class="num-input">
+          <label>時間（分鐘）：</label>
+          <input type="number" id="quizTime" value="60" min="5" max="180">
+        </div>
+        <button class="start-quiz-btn" onclick="startQuiz()">🚀 開始測驗</button>
+      </div>
+    </div>
+
+    <!-- PAGE: Study -->
+    <div id="pageStudy" class="hidden">
+      <div class="quiz-header">
+        <div class="info" id="studyInfo"></div>
+        <div class="filter-pills" id="studyFilter">
+          <span class="pill active" onclick="setStudyFilter('all',this)">全部</span>
+          <span class="pill" onclick="setStudyFilter('unseen',this)">未看過</span>
+          <span class="pill" onclick="setStudyFilter('unfamiliar',this)">不熟</span>
+          <span class="pill" onclick="setStudyFilter('due',this)">📅 到期</span>
+        </div>
+      </div>
+      <div id="studyContent"></div>
+      <div class="study-controls" id="studyControls"></div>
+    </div>
+
+    <!-- PAGE: Quiz -->
+    <div id="pageQuiz" class="hidden">
+      <div class="quiz-header">
+        <div class="info" id="quizInfo"></div>
+        <div class="timer" id="quizTimer">60:00</div>
+      </div>
+      <div class="q-dots" id="quizDots"></div>
+      <div id="quizContent" style="margin-top:16px;"></div>
+      <div class="quiz-nav" id="quizNav"></div>
+    </div>
+
+    <!-- PAGE: Results -->
+    <div id="pageResults" class="hidden">
+      <div id="resultsContent"></div>
+    </div>
+
+    <!-- PAGE: Dashboard -->
+    <div id="pageDashboard" class="hidden"></div>
+
+    <!-- PAGE: Speed Mode -->
+    <div id="pageSpeed" class="hidden">
+      <div class="quiz-header">
+        <div class="info" id="speedInfo">⚡ 速背模式</div>
+        <span class="kbd-hint" style="margin:0;">1234 快速選答</span>
+      </div>
+      <div id="speedContent" style="margin-top:16px;"></div>
+    </div>
+
+    <!-- PAGE: Search -->
+    <div id="pageSearch" class="hidden">
+      <div class="search-bar">
+        <input type="text" id="searchInput" placeholder="輸入關鍵字搜尋題目..." oninput="performSearch()">
+      </div>
+      <div id="searchResults"></div>
+    </div>
+
+    <!-- MODAL: Settings -->
+    <div id="settingsModal" class="modal-overlay hidden" onclick="if(event.target===this)closeSettings()">
+      <div class="modal-content">
+        <h2>⚙️ 設定</h2>
+        <div class="setting-group">
+          <label>🤖 Gemini API Key</label>
+          <input type="password" id="apiKeyInput" placeholder="輸入你的 Gemini API Key">
+          <p class="setting-hint">
+            前往 <a href="https://aistudio.google.com/apikey" target="_blank" style="color:var(--blue);">Google AI
+              Studio</a> 免費取得 API Key
+          </p>
+        </div>
+        <div style="display:flex;gap:12px;justify-content:flex-end;margin-top:24px;">
+          <button class="study-btn next" onclick="closeSettings()">取消</button>
+          <button class="study-btn reveal" onclick="saveSettings()">💾 儲存</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="questions.js"></script>
+  <script src="app.js"></script>
+</body>
+
+</html>
