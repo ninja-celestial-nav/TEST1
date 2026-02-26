@@ -166,10 +166,17 @@ function _callAI(q, container) {
 
 function renderMarkdown(text) {
     return text
+        // Mermaid JS Diagram blocks
+        .replace(/```mermaid\n([\s\S]*?)```/g, '<div class="mermaid-container"><div class="mermaid">$1</div></div>')
+        // Calculator Step Buttons: e.g. [sin] -> <kbd class="calc-key">sin</kbd>
+        .replace(/\[([^\]]+)\](?=\s*➔|\s*->|\s*=>)/g, '<kbd class="calc-key">$1</kbd>')
+        .replace(/(➔|->|=>)\s*\[([^\]]+)\]/g, '<span class="calc-arrow">➔</span> <kbd class="calc-key">$2</kbd>')
+        // Markdown Basics
         .replace(/## (.*)/g, '<h3>$1</h3>')
         .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
         .replace(/\*(.*?)\*/g, '<em>$1</em>')
-        .replace(/`(.*?)`/g, '<code>$1</code>')
+        // Normal code execution (ignoring what we already replaced for mermaid)
+        .replace(/`([^`\n]+)`/g, '<code>$1</code>')
         .replace(/\n- /g, '\n• ')
         .replace(/\n(\d+)\. /g, '\n$1. ')
         .replace(/\n/g, '<br>');
@@ -187,6 +194,18 @@ function aiExplainFromReview(idx) {
 const AI_MODELS = ['gemini-2.5-flash-lite', 'gemini-2.5-flash', 'gemini-2.0-flash-lite', 'gemini-2.0-flash'];
 
 async function aiExplainInPanel(q, aiPanel, apiKey, modelIdx = 0) {
+    const isCalculationSubject = state.currentSubject === '航海學' || state.currentSubject === '貨物作業';
+    let extraPrompt = '';
+    if (isCalculationSubject) {
+        extraPrompt = `
+
+## 📊 圖解說明 (如果是空間幾何、力學平衡等適合畫圖的題目)
+請使用 MermaidJS 語法 (以 \`\`\`mermaid 包裝) 畫出示意圖，幫助理解題意。若不需要畫圖則省略這區塊。
+
+## 🖩 計算機步驟 (如果是計算題)
+請提供科學計算機的逐鍵按法，格式如：[ON] ➔ [5] ➔ [sin] ➔ [×] ➔ [10] ➔ [=]。`;
+    }
+
     const prompt = `你是一位經驗豐富的航海考試輔導老師。請用繁體中文詳細解釋以下航海考試題目。
 
 題目：${q.question.replace(/\[圖片:[^\]]*\]/g, '(略圖)')}
@@ -204,8 +223,8 @@ D. ${(q.options.D || '').replace(/\[圖片:[^\]]*\]/g, '(略圖)')}
 簡述本題的核心概念和知識點。
 
 ## 📐 詳細解析
-如果是計算題，請列出完整的計算步驟，每一步都要有說明。
-如果是概念題，請解釋正確答案的推導邏輯。
+如果是計算題，請列出完整的計算公式和步驟，每一步都要有說明。
+如果是概念題，請解釋正確答案的推導邏輯。${extraPrompt}
 
 ## ❌ 其他選項分析
 簡要說明為什麼其他選項是錯誤的。
@@ -255,6 +274,12 @@ D. ${(q.options.D || '').replace(/\[圖片:[^\]]*\]/g, '(略圖)')}
         const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '無法生成解析';
         aiPanel.innerHTML = `<div class="ai-content">${renderMarkdown(text)}</div>
       <button class="ai-close" onclick="this.parentElement.style.display='none'">收起解析</button>`;
+
+        // Init Mermaid for the new content if present
+        if (typeof mermaid !== 'undefined') {
+            try { mermaid.init(undefined, aiPanel.querySelectorAll('.mermaid')); } catch (e) { console.error('Mermaid render error', e); }
+        }
+
     } catch (e) {
         if (modelIdx < AI_MODELS.length - 1) {
             return aiExplainInPanel(q, aiPanel, apiKey, modelIdx + 1);
