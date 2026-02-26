@@ -12,7 +12,12 @@
 <body>
   <div class="container">
     <button class="nav-back" id="navBack" onclick="goBack()">← 返回</button>
-    <button class="settings-btn" onclick="showSettings()">⚙️</button>
+
+    <!-- Top-right buttons -->
+    <div class="top-right-btns">
+      <div id="userArea"></div>
+      <button class="settings-btn" onclick="showSettings()">⚙️</button>
+    </div>
 
     <header class="app-header">
       <h1>🧭 一等船副 自學與測驗系統</h1>
@@ -116,6 +121,11 @@
       </div>
     </div>
   </div>
+
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/11.6.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/11.6.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore-compat.js"></script>
 
   <script src="questions.js"></script>
   <script src="app.js"></script>

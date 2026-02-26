@@ -1,7 +1,27 @@
 /* ============================================================
-   一等船副 快速自學與測驗系統 - Main App Logic (v3)
-   AI 解題 · 間隔重複 · 搜尋 · 速背模式
+   一等船副 快速自學與測驗系統 - Main App Logic (v4)
+   AI 解題 · 間隔重複 · 搜尋 · 速背模式 · Google 登入 · 雲端同步
    ============================================================ */
+
+// ===== FIREBASE CONFIG =====
+// 📌 請將下方替換為你的 Firebase 專案設定
+const firebaseConfig = {
+    apiKey: "YOUR_API_KEY",
+    authDomain: "YOUR_PROJECT.firebaseapp.com",
+    projectId: "YOUR_PROJECT_ID",
+    storageBucket: "YOUR_PROJECT.appspot.com",
+    messagingSenderId: "YOUR_SENDER_ID",
+    appId: "YOUR_APP_ID"
+};
+
+// Firebase init (only if config is set)
+let db = null, auth = null, currentUser = null;
+const FIREBASE_READY = firebaseConfig.apiKey !== "YOUR_API_KEY";
+if (FIREBASE_READY && typeof firebase !== 'undefined') {
+    firebase.initializeApp(firebaseConfig);
+    auth = firebase.auth();
+    db = firebase.firestore();
+}
 
 const SUBJECT_META = [
     { key: '航海學', icon: '🧭', color: 'var(--subject-1)', colorLight: 'rgba(74,158,255,0.2)' },
@@ -22,9 +42,49 @@ let state = {
     searchResults: []
 };
 
-// ===== PERSISTENCE =====
+// ===== GOOGLE SIGN-IN =====
+function googleSignIn() {
+    if (!FIREBASE_READY) { alert('⚠️ Firebase 尚未設定。請聯絡管理員。'); return; }
+    const provider = new firebase.auth.GoogleAuthProvider();
+    auth.signInWithPopup(provider).catch(e => alert('登入失敗: ' + e.message));
+}
+
+function googleSignOut() {
+    if (!auth) return;
+    auth.signOut().then(() => { currentUser = null; renderUserArea(); renderHome(); });
+}
+
+function renderUserArea() {
+    const area = document.getElementById('userArea');
+    if (!area) return;
+    if (currentUser) {
+        const photo = currentUser.photoURL || '';
+        const name = currentUser.displayName || '使用者';
+        area.innerHTML = `
+            <div class="user-info" onclick="googleSignOut()" title="點擊登出">
+                <img class="user-avatar" src="${photo}" alt="" onerror="this.style.display='none'">
+                <span class="user-name">${name.split(' ')[0]}</span>
+                <span class="sync-badge" id="syncBadge">☁️</span>
+            </div>`;
+    } else if (FIREBASE_READY) {
+        area.innerHTML = `<button class="login-btn" onclick="googleSignIn()">🔑 Google 登入</button>`;
+    } else {
+        area.innerHTML = '';
+    }
+}
+
+// ===== PERSISTENCE (localStorage + Firestore) =====
 function getProgress() { try { return JSON.parse(localStorage.getItem('quiz_progress') || '{}'); } catch { return {}; } }
-function saveProgress(data) { localStorage.setItem('quiz_progress', JSON.stringify(data)); }
+
+let _syncTimer = null;
+function saveProgress(data) {
+    localStorage.setItem('quiz_progress', JSON.stringify(data));
+    // Debounced cloud sync
+    if (currentUser && db) {
+        clearTimeout(_syncTimer);
+        _syncTimer = setTimeout(() => syncToCloud(data), 1500);
+    }
+}
 function getSubjectProgress(subject) {
     const p = getProgress();
     if (!p[subject]) p[subject] = { familiar: [], wrong: [], quizScores: [], seen: [], sr: {} };
@@ -951,8 +1011,89 @@ function shuffle(arr) {
     return a;
 }
 
+// ===== CLOUD SYNC =====
+async function syncToCloud(data) {
+    if (!currentUser || !db) return;
+    try {
+        const badge = document.getElementById('syncBadge');
+        if (badge) badge.textContent = '🔄';
+        await db.collection('users').doc(currentUser.uid).set({
+            progress: data,
+            lastSync: firebase.firestore.FieldValue.serverTimestamp(),
+            displayName: currentUser.displayName || '',
+            email: currentUser.email || ''
+        }, { merge: true });
+        if (badge) { badge.textContent = '✅'; setTimeout(() => { if (badge) badge.textContent = '☁️'; }, 2000); }
+    } catch (e) {
+        console.error('Cloud sync failed:', e);
+        const badge = document.getElementById('syncBadge');
+        if (badge) badge.textContent = '⚠️';
+    }
+}
+
+async function syncFromCloud() {
+    if (!currentUser || !db) return;
+    try {
+        const doc = await db.collection('users').doc(currentUser.uid).get();
+        if (doc.exists && doc.data().progress) {
+            const cloudData = doc.data().progress;
+            const localData = getProgress();
+            const merged = mergeProgress(localData, cloudData);
+            localStorage.setItem('quiz_progress', JSON.stringify(merged));
+            // Push merged back to cloud
+            await syncToCloud(merged);
+        } else {
+            // First time login — push local to cloud
+            const localData = getProgress();
+            if (Object.keys(localData).length > 0) {
+                await syncToCloud(localData);
+            }
+        }
+    } catch (e) { console.error('Cloud read failed:', e); }
+}
+
+function mergeProgress(local, cloud) {
+    const merged = { ...local };
+    for (const subject of Object.keys(cloud)) {
+        if (!merged[subject]) { merged[subject] = cloud[subject]; continue; }
+        const l = merged[subject], c = cloud[subject];
+        // Merge arrays: union (keep all unique IDs)
+        ['familiar', 'wrong', 'seen'].forEach(key => {
+            const lArr = l[key] || [], cArr = c[key] || [];
+            merged[subject][key] = [...new Set([...lArr, ...cArr])];
+        });
+        // Merge quiz scores: keep all unique by date
+        const lScores = l.quizScores || [], cScores = c.quizScores || [];
+        const scoreMap = new Map();
+        [...lScores, ...cScores].forEach(s => scoreMap.set(s.date, s));
+        merged[subject].quizScores = [...scoreMap.values()].sort((a, b) => a.date - b.date);
+        // Merge SR: keep higher level / later next
+        const lSr = l.sr || {}, cSr = c.sr || {};
+        merged[subject].sr = { ...lSr };
+        for (const qId of Object.keys(cSr)) {
+            if (!merged[subject].sr[qId] || cSr[qId].level > (merged[subject].sr[qId].level || 0)) {
+                merged[subject].sr[qId] = cSr[qId];
+            }
+        }
+    }
+    return merged;
+}
+
 // ===== INIT =====
 document.addEventListener('DOMContentLoaded', () => {
     renderHome();
     showPage('home');
+    renderUserArea();
+
+    // Firebase auth listener
+    if (auth) {
+        auth.onAuthStateChanged(async (user) => {
+            currentUser = user;
+            renderUserArea();
+            if (user) {
+                await syncFromCloud();
+                renderHome(); // Re-render with merged data
+            }
+        });
+    }
 });
