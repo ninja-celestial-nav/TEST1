@@ -199,11 +199,10 @@ async function aiExplainInPanel(q, aiPanel, apiKey, modelIdx = 0) {
     if (isCalculationSubject) {
         extraPrompt = `
 
-## 📊 圖解說明 (如果是空間幾何、力學平衡等適合畫圖的題目)
-請使用 MermaidJS 語法 (以 \`\`\`mermaid 包裝) 畫出示意圖，幫助理解題意。若不需要畫圖則省略這區塊。
-
-## 🖩 計算機步驟 (如果是計算題)
-請提供科學計算機的逐鍵按法，格式如：[ON] ➔ [5] ➔ [sin] ➔ [×] ➔ [10] ➔ [=]。`;
+!! 強制視覺化要求 !!
+如果是計算題，請務必嚴格遵守以下兩點格式：
+1. 🖩 計算機步驟：所有計算機按鍵必須使用中括號，例如：[ON] ➔ [3] ➔ [sin] ➔ [×] ➔ [1] ➔ [0] ➔ [=]。這會觸發系統的立體按鈕特效，絕對不可省略中括號。
+2. 📊 圖解說明：若涉及空間幾何、球面三角、力學或船舶受力等能用圖表解釋的概念，請務必提供 Mermaid 代碼（用 \`\`\`mermaid 包裝開頭與結尾）。請使用 flowcharts(TB/LR) 流程圖、pie 圓餅圖 等標準圖表，不可使用外部圖片或自訂圖形。這會觸發系統自動繪製圖表。若純代數計算且無法畫圖則可省略此圖表。`;
     }
 
     const prompt = `你是一位經驗豐富的航海考試輔導老師。請用繁體中文詳細解釋以下航海考試題目。
@@ -223,7 +222,7 @@ D. ${(q.options.D || '').replace(/\[圖片:[^\]]*\]/g, '(略圖)')}
 簡述本題的核心概念和知識點。
 
 ## 📐 詳細解析
-如果是計算題，請列出完整的計算公式和步驟，每一步都要有說明。
+如果是計算題，請列出完整的計算公式和步驟，每一步都要有說明。（數學公式請盡量使用 LaTeX 語法）
 如果是概念題，請解釋正確答案的推導邏輯。${extraPrompt}
 
 ## ❌ 其他選項分析
@@ -241,7 +240,7 @@ D. ${(q.options.D || '').replace(/\[圖片:[^\]]*\]/g, '(略圖)')}
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 contents: [{ parts: [{ text: prompt }] }],
-                generationConfig: { temperature: 0.3, maxOutputTokens: 2048 }
+                generationConfig: { temperature: 0.2, maxOutputTokens: 2048 }
             })
         });
 
@@ -274,6 +273,20 @@ D. ${(q.options.D || '').replace(/\[圖片:[^\]]*\]/g, '(略圖)')}
         const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '無法生成解析';
         aiPanel.innerHTML = `<div class="ai-content">${renderMarkdown(text)}</div>
       <button class="ai-close" onclick="this.parentElement.style.display='none'">收起解析</button>`;
+
+        // Init KaTeX Math
+        if (typeof renderMathInElement !== 'undefined') {
+            try {
+                renderMathInElement(aiPanel, {
+                    delimiters: [
+                        { left: '$$', right: '$$', display: true },
+                        { left: '\\[', right: '\\]', display: true },
+                        { left: '$', right: '$', display: false },
+                        { left: '\\(', right: '\\)', display: false }
+                    ]
+                });
+            } catch (e) { console.error('KaTeX render error', e); }
+        }
 
         // Init Mermaid for the new content if present
         if (typeof mermaid !== 'undefined') {
